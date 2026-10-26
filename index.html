@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>쇼핑 리스트</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #fff;
+    --text: #1f2933;
+    --muted: #7b8794;
+    --accent: #2f80ed;
+    --danger: #e5484d;
+    --border: #e4e7eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161b;
+      --card: #1b2128;
+      --text: #e6e9ed;
+      --muted: #8b95a1;
+      --border: #2b333c;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    padding: 24px 16px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  }
+  main {
+    max-width: 480px;
+    margin: 0 auto;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, .08);
+  }
+  h1 { margin: 0 0 16px; font-size: 22px; }
+  form { display: flex; gap: 8px; }
+  input[type="text"] {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+  }
+  .add {
+    padding: 0 16px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  ul { list-style: none; margin: 16px 0 0; padding: 0; }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  li:last-child { border-bottom: none; }
+  li input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
+  li span { flex: 1; word-break: break-all; }
+  li.done span { text-decoration: line-through; color: var(--muted); }
+  .del {
+    background: transparent;
+    color: var(--danger);
+    font-size: 18px;
+    padding: 4px 8px;
+  }
+  .del:hover { background: rgba(229, 72, 77, .12); }
+  .empty { text-align: center; color: var(--muted); padding: 24px 0 8px; }
+  footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .clear { background: transparent; color: var(--muted); text-decoration: underline; font-size: 14px; }
+  .clear:hover { color: var(--danger); }
+</style>
+</head>
+<body>
+<main>
+  <h1>🛒 쇼핑 리스트</h1>
+  <form id="form">
+    <input id="input" type="text" placeholder="사야 할 것을 입력하세요" autocomplete="off" autofocus>
+    <button class="add" type="submit">추가</button>
+  </form>
+  <ul id="list"></ul>
+  <p id="empty" class="empty">아직 항목이 없어요.</p>
+  <footer id="footer" hidden>
+    <span id="count"></span>
+    <button id="clearDone" class="clear" type="button">체크한 항목 삭제</button>
+  </footer>
+</main>
+
+<script>
+  const KEY = 'shopping-list';
+  const form = document.getElementById('form');
+  const input = document.getElementById('input');
+  const list = document.getElementById('list');
+  const empty = document.getElementById('empty');
+  const footer = document.getElementById('footer');
+  const count = document.getElementById('count');
+
+  let items = load();
+
+  function load() {
+    try {
+      return JSON.parse(localStorage.getItem(KEY)) || [];
+    } catch {
+      return [];
+    }
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(items));
+    } catch {}
+  }
+
+  function render() {
+    list.innerHTML = '';
+    for (const item of items) {
+      const li = document.createElement('li');
+      if (item.done) li.className = 'done';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = item.done;
+      cb.addEventListener('change', () => {
+        item.done = cb.checked;
+        save();
+        render();
+      });
+
+      const label = document.createElement('span');
+      label.textContent = item.text;
+
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.type = 'button';
+      del.textContent = '✕';
+      del.setAttribute('aria-label', '삭제');
+      del.addEventListener('click', () => {
+        items = items.filter(i => i.id !== item.id);
+        save();
+        render();
+      });
+
+      li.append(cb, label, del);
+      list.appendChild(li);
+    }
+
+    const doneCount = items.filter(i => i.done).length;
+    empty.hidden = items.length > 0;
+    footer.hidden = items.length === 0;
+    count.textContent = `${doneCount} / ${items.length} 완료`;
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    items.push({ id: Date.now() + Math.random(), text, done: false });
+    input.value = '';
+    save();
+    render();
+  });
+
+  document.getElementById('clearDone').addEventListener('click', () => {
+    items = items.filter(i => !i.done);
+    save();
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>
